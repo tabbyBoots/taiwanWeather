@@ -1,8 +1,7 @@
 <template>
   <div class="weather-container">
-    <h1>Taiwan Weather</h1>
-    <div class="location-selector">
-      <label for="location-select">Select Location:</label>
+    <h1>台北市各區一週天氣狀況</h1>
+    <div class="controls-container">
       <select id="location-select" v-model="selectedLocation">
         <option value="松山區">松山區</option>
         <option value="信義區">信義區</option>
@@ -17,16 +16,16 @@
         <option value="士林區">士林區</option>
         <option value="北投區">北投區</option>
       </select>
+      <button v-if="processedData.tableData && processedData.tableData.length" @click="showTable = !showTable">
+        {{ showTable ? 'Hide Table' : 'Show Table' }}
+      </button>
     </div>
     <div v-if="loading">Loading...</div>
     <div v-if="error">{{ error }}</div>
     <div v-if="processedData.tableData && processedData.tableData.length" class="weather-data">
       <WeatherChart :chartData="chartConfig" />
-      <button @click="showTable = !showTable">
-        {{ showTable ? 'Hide Table' : 'Show Table' }}
-      </button>
       <div v-if="showTable">
-        <h2>{{ weatherData.LocationName }} - {{ selectedLocation }}</h2>
+        <h2>{{ selectedLocation }}</h2>
         <table>
           <thead>
           <tr>
@@ -80,16 +79,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import WeatherChart from './WeatherChart.vue';
 
 const weatherData = ref(null);
 const loading = ref(true);
 const error = ref(null);
-const selectedLocation = ref('松山區'); // Default to 松山區
+const selectedLocation = ref('內湖區'); // 預設位置為內湖
 const showDetails = ref(false); // New ref to control details visibility
 const showTable = ref(false); // New ref to control table visibility
+let refreshInterval = null; // Auto-refresh interval
 
 const fetchWeatherData = async () => {
   loading.value = true;
@@ -274,6 +274,16 @@ const processedData = computed(() => {
   // Sort finalChartData by date
   finalChartData.sort((a, b) => new Date(a.time) - new Date(b.time));
 
+  // Fix missing temperature data by using previous day's temperature
+  for (let i = 0; i < finalChartData.length; i++) {
+    if (finalChartData[i].MaxT === null && i > 0) {
+      finalChartData[i].MaxT = finalChartData[i - 1].MaxT;
+    }
+    if (finalChartData[i].MinT === null && i > 0) {
+      finalChartData[i].MinT = finalChartData[i - 1].MinT;
+    }
+  }
+
   const finalProcessedData = Object.values(dataByTime).map(item => {
     const newItem = { ...item };
 
@@ -369,10 +379,21 @@ const chartConfig = computed(() => {
 
 onMounted(() => {
   fetchWeatherData();
+  // Set up auto-refresh every hour (3600000 milliseconds)
+  refreshInterval = setInterval(() => {
+    fetchWeatherData();
+  }, 3600000);
 });
 
 watch(selectedLocation, () => {
   fetchWeatherData();
+});
+
+onBeforeUnmount(() => {
+  // Clean up the interval when component is unmounted
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+  }
 });
 </script>
 
@@ -381,25 +402,248 @@ watch(selectedLocation, () => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
-  font-family: sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  color: #ffffff;
+}
+
+h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 2rem;
+  background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.controls-container {
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.controls-container select {
+  padding: 12px 20px;
+  font-size: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  min-width: 200px;
+}
+
+.controls-container select:focus {
+  outline: none;
+  border-color: #4ecdc4;
+  box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.3);
+}
+
+.controls-container select option {
+  background: #2a5298;
+  color: #ffffff;
+}
+
+.controls-container button {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.weather-data {
+  width: 100%;
+  max-width: 1000px;
+}
+
+button {
+  background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 1rem 0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(45deg, #764ba2 0%, #667eea 100%);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+.loading, .error {
+  font-size: 1.2rem;
+  padding: 2rem;
+  text-align: center;
+  border-radius: 12px;
+  margin: 2rem 0;
+}
+
+.loading {
+  background: rgba(78, 205, 196, 0.2);
+  border: 1px solid rgba(78, 205, 196, 0.3);
+}
+
+.error {
+  background: rgba(255, 107, 107, 0.2);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+h2 {
+  font-size: 1.8rem;
+  margin: 2rem 0 1rem 0;
+  text-align: center;
+  color: #ffffff;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 12px;
   text-align: left;
+  color: #ffffff;
 }
 
 th {
-  background-color: #f2f2f2;
+  background: rgba(255, 255, 255, 0.2);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+td {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+tr:hover td {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .weather-container {
+    padding: 15px;
+  }
+  
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .controls-container {
+    margin-bottom: 1.5rem;
+    gap: 0.8rem;
+  }
+  
+  .controls-container select {
+    min-width: 180px;
+    padding: 10px 16px;
+  }
+  
+  table {
+    font-size: 0.85rem;
+  }
+  
+  th, td {
+    padding: 8px;
+  }
+  
+  button {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .weather-container {
+    padding: 10px;
+  }
+  
+  h1 {
+    font-size: 1.6rem;
+    margin-bottom: 1rem;
+  }
+  
+  .controls-container {
+    margin-bottom: 1rem;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  
+  .controls-container select {
+    min-width: 160px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+  
+  .controls-container button {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    width: 100%;
+    max-width: 200px;
+  }
+  
+  table {
+    font-size: 0.75rem;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  th, td {
+    padding: 6px;
+    min-width: 80px;
+  }
+  
+  button {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    width: 100%;
+    max-width: 200px;
+  }
+  
+  h2 {
+    font-size: 1.4rem;
+  }
+}
+
+/* Dark theme enhancements */
+@media (prefers-color-scheme: dark) {
+  .weather-container {
+    background: linear-gradient(135deg, #0c1445 0%, #1a237e 100%);
+  }
 }
 </style>
