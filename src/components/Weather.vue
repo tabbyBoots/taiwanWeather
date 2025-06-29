@@ -95,7 +95,8 @@ const fetchWeatherData = async () => {
   loading.value = true;
   error.value = null;
   try {
-    const response = await axios.get(`/api/v1/rest/datastore/F-D0047-063?Authorization=CWA-9B472F71-2A99-4308-BF3B-05C3C27E0DE5&LocationName=${selectedLocation.value}`);
+    // Updated API endpoint to use the correct base URL
+    const response = await axios.get(`https://opendata.cwb.gov.tw/api/v1/rest/datastore/F-D0047-063?Authorization=CWA-9B472F71-2A99-4308-BF3B-05C3C27E0DE5&LocationName=${selectedLocation.value}`);
     if (
       response.data &&
       response.data.records &&
