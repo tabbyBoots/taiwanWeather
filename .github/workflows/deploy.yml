@@ -9,11 +9,20 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     container:
-      image: node:18-alpine
+      image: node:18
+      options: --user root
 
     steps:
+      - name: Install build dependencies
+        run: apt-get update && apt-get install -y git openssh-client
+
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
       - name: Install dependencies
         run: npm install
