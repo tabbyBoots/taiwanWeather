@@ -8,27 +8,26 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    container:
-      image: node:18
-      options: --user root
     permissions:
       contents: write # Grant write permissions to the GITHUB_TOKEN
 
     steps:
-      - name: Install build dependencies
-        run: apt-get update && apt-get install -y git openssh-client
-
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Clean install dependencies
-        run: |
-          rm -rf node_modules
-          rm -f package-lock.json
-          npm install
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Clean and install dependencies
+        run: npm ci
+
+      - name: Clean dist directory
+        run: rm -rf dist
 
       - name: Build
-        run: npm run build
+        run: NODE_OPTIONS=--no-node-snapshot npm run build
 
       - name: List dist directory contents
         run: ls -R dist
