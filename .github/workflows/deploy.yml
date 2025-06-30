@@ -30,9 +30,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Copy vite.svg to dist
-        run: cp vite.svg dist/
-
       - name: List dist directory contents
         run: ls -R dist
 
